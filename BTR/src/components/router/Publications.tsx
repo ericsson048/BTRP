@@ -1,100 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+interface Publication {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  image: string;
+  category: string;
+  author?: string;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+}
 
 function Publications() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [publications, setPublications] = useState<Publication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const publicationsPerPage = 3;
 
-  const publications = [
-    {
-      id: 1,
-      title: "L'Internet of Things (IoT)",
-      description: "Contenu descriptif IoT",
-      date: "Blog - Wednesday September 13, 2023",
-      image: "https://placehold.co/600x400",
-      category: 'Tech',
-    },
-    {
-      id: 2,
-      title: "occasion d'échanger des enjeux de transformation digitale",
-      description: "Ce fut une occasion d'échanger autour des enjeux de transformation digitale au #BURundi ainsi que des défis du secteur de...",
-      date: "Blog - Wednesday September 13, 2023",
-      image: "https://placehold.co/600x400",
-      category: 'Digital',
-    },
-    {
-      id: 3,
-      title: "Suivi-évaluation temps réel de l'exécution du budget de l'état",
-      description: "Dans le cadre du projet de mise en place du Suivi-évaluation temps réel de l'exécution du budget de l'état #PTBA en mode budget programme, nos ingénieurs présentaient le module #PIP (Programme d'investissement Public) aux cadres du @FinancesBdi et des ministères sectoriels",
-      date: "Blog - Wednesday September 13, 2023",
-      image: "https://placehold.co/600x400",
-      author: "@BTR",
-      likes: 16,
-      comments: 9,
-      shares: 4,
-      category: 'Tech',
-    },
-    {
-      id: 4,
-      title: "Nouvelles tendances en développement web",
-      description: "Exploration des dernières tendances en matière de développement web et de technologies émergentes.",
-      date: "Blog - Thursday September 14, 2023",
-      image: "https://placehold.co/600x400",
-      author: "@BTR",
-      likes: 10,
-      comments: 5,
-      shares: 2,
-      category: 'Tech',
-    },
-    {
-      id: 5,
-      title: "L'importance de la cybersécurité",
-      description: "Pourquoi la cybersécurité est essentielle pour les entreprises modernes.",
-      date: "Blog - Friday September 15, 2023",
-      image: "https://placehold.co/600x400",
-      author: "@BTR",
-      likes: 20,
-      comments: 12,
-      shares: 8,
-      category: 'Tech',
-    },
-    {
-      id: 6,
-      title: "Développement d'applications mobiles",
-      description: "Les meilleures pratiques pour le développement d'applications mobiles.",
-      date: "Blog - Saturday September 16, 2023",
-      image: "https://placehold.co/600x400",
-      author: "@BTR",
-      likes: 15,
-      comments: 7,
-      shares: 3,
-      category: 'Tech',
-    },
-    {
-      id: 7,
-      title: "Communiqué de presse sur la digitalisation",
-      description: "Détails sur la digitalisation des services publics.",
-      date: "Press Release - September 17, 2023",
-      image: "https://placehold.co/600x400",
-      category: 'Press Release',
-    },
-    {
-      id: 8,
-      title: "Newsletter de septembre",
-      description: "Les dernières nouvelles de notre organisation.",
-      date: "Newsletter - September 18, 2023",
-      image: "https://placehold.co/600x400",
-      category: 'Newsletter',
-    },
-    {
-      id: 9,
-      title: "Vidéo sur les tendances technologiques",
-      description: "Une vidéo sur les dernières tendances en technologie.",
-      date: "Video - September 19, 2023",
-      image: "https://placehold.co/600x400",
-      category: 'Video',
-    },
-  ];
+  useEffect(() => {
+    const fetchPublications = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:3500/publications');
+        if (!response.ok) {
+          throw new Error('Failed to fetch publications');
+        }
+        const data = await response.json();
+        setPublications(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPublications();
+  }, []);
 
   const categories = ['All', 'Press Release', 'Newsletter', 'Blog', 'Gallerie', 'Video'];
 
@@ -107,18 +53,41 @@ function Publications() {
   const currentPublications = filteredPublications.slice(indexOfFirstPublication, indexOfLastPublication);
   const totalPages = Math.ceil(filteredPublications.length / publicationsPerPage);
 
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8 px-6">
+        <div className="text-center">
+          <p className="text-xl">Loading publications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto py-8 px-6">
+        <div className="text-center text-red-500">
+          <p className="text-xl">Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <main className="container mx-auto py-8 px-6">
         <section className="bg-white shadow-md rounded-lg p-6 mb-8">
           <div className="flex flex-col md:flex-row">
-            <img src="https://placehold.co/600x400" alt="People in a meeting" className="w-full md:w-1/2 rounded-lg"/>
-            <div className="ml-0 md:ml-6 mt-4 md:mt-0">
-              <h2 className="text-2xl font-bold text-gray-800">Réunion relative à la digitalisation fiscale</h2>
-              <p className="text-gray-600 mt-4">Réunion à Kiriirangien relative à la digitalisation fiscale procédures de l'obtention du permis de bâtir ainsi que la visualisation spatiale des parcelles. MelesBurundi est résolument décidé à numériser ses archives et faciliter ainsi la tâche aux usagers des services public.</p>
-              <p className="text-gray-600 mt-4">Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
-              <p className="text-gray-500 mt-4">Blog - 24 Septembre 2023</p>
-            </div>
+            {publications.length > 0 && (
+              <>
+                <img src={publications[publications.length-1].image} alt={publications[publications.length-1].title} className="w-full md:w-1/2 rounded-lg"/>
+                <div className="ml-0 md:ml-6 mt-4 md:mt-0">
+                  <h2 className="text-2xl font-bold text-gray-800">{publications[publications.length-1].title}</h2>
+                  <p className="text-gray-600 mt-4">{publications[publications.length-1].description}</p>
+                  <p className="text-gray-500 mt-4">{publications[publications.length-1].category} - {publications[publications.length-1].date}</p>
+                </div>
+              </>
+            )}
           </div>
         </section>
         <section className="mb-8">
@@ -145,7 +114,7 @@ function Publications() {
               <div key={pub.id} className="bg-white shadow-md rounded-lg p-4">
                 <img src={pub.image} alt={pub.title} className="w-full rounded-lg mb-4"/>
                 <h3 className="text-xl font-bold text-gray-800">{pub.title}</h3>
-                <p className="text-gray-600 mt-2">{pub.description}</p>
+                <p className="text-gray-600 mt-2 w-full">{pub.description}</p>
                 <p className="text-gray-500 mt-2">{pub.date}</p>
                 {pub.author && (
                   <div className="flex items-center mb-4">
@@ -156,11 +125,13 @@ function Publications() {
                     </div>
                   </div>
                 )}
-                <div className="flex space-x-4 text-gray-600">
-                  <span><i className="fas fa-heart"></i> {pub.likes}</span>
-                  <span><i className="fas fa-comment"></i> {pub.comments}</span>
-                  <span><i className="fas fa-share"></i> {pub.shares}</span>
-                </div>
+                {(pub.likes !== undefined || pub.comments !== undefined || pub.shares !== undefined) && (
+                  <div className="flex space-x-4 text-gray-600">
+                    {pub.likes !== undefined && <span><i className="fas fa-heart"></i> {pub.likes}</span>}
+                    {pub.comments !== undefined && <span><i className="fas fa-comment"></i> {pub.comments}</span>}
+                    {pub.shares !== undefined && <span><i className="fas fa-share"></i> {pub.shares}</span>}
+                  </div>
+                )}
                 <a href="#" className="text-primary mt-4 block">Read more</a>
               </div>
             ))}

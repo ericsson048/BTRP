@@ -5,6 +5,7 @@ import {
     PopoverContent,
     PopoverTrigger,
   } from "@/components/ui/popover"
+  import { useState, useEffect } from 'react';
 import { Link } from "react-router-dom"
 import { buttonVariants } from "../ui/button"
 import login from "../../../public/login.png"
@@ -20,10 +21,44 @@ import {
   } from "@/components/ui/sheet"
 import { Contacts, Hebergement, MyIcon } from "./NavBar"
 import { FaPhone } from "react-icons/fa"
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+
   
 
 
 function MobileNav() {
+
+  const [user, setUser] = useState<any>(null);
+
+
+  useEffect(() => {
+    // Check for access token in cookies and user details in localStorage
+    const userInfo = localStorage.getItem('userDetails');
+    if (userInfo) {
+      try {
+        const parsedUser = JSON.parse(userInfo);
+        if (parsedUser) {
+          setUser(parsedUser);
+        }
+      } catch (error) {
+        console.error('Error parsing user info:', error);
+        localStorage.removeItem('userDetails');
+        setUser(null);
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    // Clear user details from localStorage
+    localStorage.removeItem('userDetails');
+    // Clear user state
+    setUser(null);
+    // You might want to make an API call to clear the httpOnly cookie on the server
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(error => console.error('Error during logout:', error));
+  };
 
   const links = [
     { link: "/", label: "Accueil", Icon: HomeIcon },
@@ -51,8 +86,29 @@ function MobileNav() {
         <img src={login} alt="login" className="max-sm:h-[2rem] max-sm:w-[2rem]" />
       </PopoverTrigger>
       <PopoverContent className="w-fit flex gap-3 bg-card">
-        <Link to ="/" className={buttonVariants({variant:"outline"})+"border border-black transform hover:scale-105 duration-1000"}>Login</Link>
-        <Link to ="/" className={buttonVariants({variant:"default"})+"border border-black transform hover:scale-105 duration-1000"}>Sign up</Link>
+      {user ? (
+            <div className="flex items-center gap-4">
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={user.image} alt={user.name} />
+                <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <button
+                onClick={handleLogout}
+                className={buttonVariants({variant:"destructive"})+"border border-black transform hover:scale-105 duration-1000"}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <Link to="/log-in" className={buttonVariants({variant:"outline"})+"border border-black transform hover:scale-105 duration-1000"}>
+                Login
+              </Link>
+              <Link to="/sign-in" className={buttonVariants({variant:"default"})+"border border-black transform hover:scale-105 duration-1000"}>
+                Sign up
+              </Link>
+            </div>
+          )}
         </PopoverContent>
         </Popover>
         <Sheet>
