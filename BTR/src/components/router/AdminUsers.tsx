@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import  { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
@@ -12,33 +12,44 @@ import {
   DialogFooter,
 } from "../ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../ui/select";
+import { useToast } from "../../hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 
 interface User {
-  _id: string;
+  id: string;
   name: string;
   email: string;
   role: string;
   image?: string;
 }
 
-interface FormData {
-  image: string;
-  name: string;
-  email: string;
-  role: string;
-  password: string;
-}
+const userSchema = yup.object({
+  name: yup.string().required("Name is required"),
+  email: yup.string().email("Invalid email format").required("Email is required"),
+  role: yup.string().oneOf(["user", "admin"], "Invalid role").required("Role is required"),
+  password: yup.string()
+    .when("$isEditing", {
+      is: false,
+      then: (schema) => schema.required("Password is required for new users")
+        .min(8, "Password must be at least 8 characters"),
+      otherwise: (schema) => schema.optional(),
+    }),
+  image: yup.string().optional(),
+}).required();
+
+type FormData = yup.InferType<typeof userSchema>;
 
 const AdminUsers = () => {
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState<FormData>({
-    image: '',
-    name: '',
-    email: '',
-    role: 'user',
-    password: '',
+  
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<FormData>({
+    resolver: yupResolver(userSchema),
+    context: { isEditing: !!selectedUser }
   });
 
   useEffect(() => {
@@ -51,22 +62,27 @@ const AdminUsers = () => {
       setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
     }
   };
 
   const handleOpen = (user?: User) => {
     if (user) {
       setSelectedUser(user);
-      setFormData({
+      reset({
         image: user.image || '',
         name: user.name,
         email: user.email,
-        role: user.role,
-        password: '', // Don't show existing password
+        role: user.role === 'admin' ? 'admin' : 'user',
+        password: '',
       });
     } else {
       setSelectedUser(null);
-      setFormData({
+      reset({
         image: '',
         name: '',
         email: '',
@@ -80,39 +96,49 @@ const AdminUsers = () => {
   const handleClose = () => {
     setOpen(false);
     setSelectedUser(null);
+    reset();
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleRoleSelect = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      role: value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: FormData) => {
     try {
+      const payload = {
+        ...data,
+        image: data.image || undefined
+      };
+
       if (selectedUser) {
-        const updateData = { ...formData } as { [key: string]: any };
+        const updateData = { ...payload } as { [key: string]: any };
         if (!updateData.password) {
           delete updateData.password;
         }
-        await axios.put(`http://localhost:3500/users/${selectedUser._id}`, updateData);
+        const response = await axios.put(`http://localhost:3500/users/${selectedUser.id}`, updateData);
+        if (response.data) {
+          toast({
+            title: "Success",
+            description: "User updated successfully",
+          });
+          fetchUsers();
+          handleClose();
+        }
       } else {
-        await axios.post('http://localhost:3500/users', formData);
+        const response = await axios.post('http://localhost:3500/users', payload);
+        if (response.data) {
+          toast({
+            title: "Success",
+            description: "User created successfully",
+          });
+          fetchUsers();
+          handleClose();
+        }
       }
-      fetchUsers();
-      handleClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving user:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to save user';
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -121,11 +147,61 @@ const AdminUsers = () => {
       try {
         await axios.delete(`http://localhost:3500/users/${id}`);
         fetchUsers();
-      } catch (error) {
+        toast({
+          title: "Success",
+          description: "User deleted successfully",
+        });
+      } catch (error: any) {
         console.error('Error deleting user:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to delete user';
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
       }
     }
   };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file) {
+        toast({
+          title: "Error",
+          description: "No file selected",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      console.log('Uploading file:', file.name);
+      const response = await axios.post('http://localhost:3500/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('Upload response:', response.data);
+      setValue('image', response.data.imageUrl);
+     
+      toast({
+        title: "Success",
+        description: "Image uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
 
   return (
     <div className="container mx-auto p-4">
@@ -147,17 +223,25 @@ const AdminUsers = () => {
           </TableHeader>
           <TableBody>
             {users.map((user) => (
-              <TableRow key={user._id}>
+              <TableRow key={user.id}>
                 <TableCell>
                   {user.image ? (
-                    <img 
-                      src={user.image} 
-                      alt={user.name} 
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
+                    <div className="h-10 w-10 rounded-full overflow-hidden">
+                      <img 
+                        src={user.image} 
+                        alt={`${user.name}'s avatar`}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+                        }}
+                      />
+                    </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-500 text-xl">{user.name[0]}</span>
+                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-500 text-sm">
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
                     </div>
                   )}
                 </TableCell>
@@ -166,8 +250,20 @@ const AdminUsers = () => {
                 <TableCell>{user.role}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => handleOpen(user)}>Edit</Button>
-                    <Button variant="destructive" onClick={() => handleDelete(user._id)}>Delete</Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpen(user)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(user.id)}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -177,75 +273,89 @@ const AdminUsers = () => {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{selectedUser ? 'Edit User' : 'Add New User'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="image" className="text-sm font-medium">Image URL</label>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div>
               <Input
-                id="image"
-                name="image"
-                value={formData.image}
-                onChange={handleInputChange}
-                placeholder="Enter image URL"
+                {...register("name")}
+                placeholder="Name"
+                className={errors.name ? "border-red-500" : ""}
               />
+              {errors.name && (
+                <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+              )}
             </div>
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">Name</label>
+
+            <div>
               <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">Email</label>
-              <Input
-                id="email"
-                name="email"
+                {...register("email")}
+                placeholder="Email"
                 type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
+                className={errors.email ? "border-red-500" : ""}
               />
+              {errors.email && (
+                <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+              )}
             </div>
-            <div className="space-y-2">
-              <label htmlFor="role" className="text-sm font-medium">Role</label>
-              <Select
-                value={formData.role}
-                onValueChange={handleRoleSelect}
+
+            <div>
+              <Input
+                {...register("password")}
+                placeholder="Password"
+                type="password"
+                className={errors.password ? "border-red-500" : ""}
+              />
+              {errors.password && (
+                <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Select 
+                onValueChange={(value) => setValue("role", value)} 
+                defaultValue={selectedUser?.role || "user"}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
+                <SelectTrigger className={errors.role ? "border-red-500" : ""}>
+                  <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.role && (
+                <p className="text-red-500 text-sm mt-1">{errors.role.message}</p>
+              )}
             </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                {selectedUser ? 'New Password (leave empty to keep current)' : 'Password'}
+
+            <div>
+              <label htmlFor="image" className="block text-sm font-medium text-gray-700">
+                Profile Image
               </label>
               <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required={!selectedUser}
+                type="file"
+                id="image"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className={errors.image ? "border-red-500" : ""}
               />
+              {errors.image && (
+                <p className="text-red-500 text-sm mt-1">{errors.image.message}</p>
+              )}
             </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                {selectedUser ? 'Update' : 'Create'}
+              </Button>
+            </DialogFooter>
           </form>
-          <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button type="submit">Save</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -22,6 +22,7 @@ import AdminProject from "./components/router/AdminProject";
 import AdminUsers from "./components/router/AdminUsers";
 import AdminProjectStacks from "./components/router/AdminProjectStacks";
 import AdminResponsibilities from "./components/router/AdminResponsibilities";
+import AdminDashboard from "./components/router/AdminDashboard";
 import { AuthProvider } from './hooks/use-auth';
 
 function App() {
@@ -166,6 +167,10 @@ function App() {
                 </motion.div>
               }
             >
+              <Route
+                index
+                element={<AdminDashboard />}
+              />
               <Route
                 path="publications"
                 element={<AdminPublications />}
