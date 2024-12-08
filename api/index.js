@@ -12,6 +12,7 @@ import projectStackRoutes from './routes/project-stacks.routes.js';
 import teamRoutes from './routes/team.routes.js';
 import responsibilityRoutes from './routes/responsibilities.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import contactsRoutes from './routes/contacts.routes.js';
 
 dotenv.config();
 const app = express();
@@ -45,6 +46,7 @@ app.use('/project-stacks', projectStackRoutes);
 app.use('/team', teamRoutes);
 app.use('/responsibilities', responsibilityRoutes);
 app.use('/upload', uploadRoutes);
+app.use('/contacts', contactsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

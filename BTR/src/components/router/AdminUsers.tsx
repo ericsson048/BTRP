@@ -175,6 +175,20 @@ const AdminUsers = () => {
         return;
       }
 
+      // Si nous avons une image existante, la supprimer d'abord
+      const currentImageUrl = selectedUser?.image;
+      if (currentImageUrl) {
+        const filename = currentImageUrl.split('/').pop();
+        if (filename) {
+          try {
+            await axios.delete(`http://localhost:3500/upload/${filename}`);
+            console.log('Old image deleted successfully');
+          } catch (error) {
+            console.error('Error deleting old image:', error);
+          }
+        }
+      }
+
       const formData = new FormData();
       formData.append('image', file);
 
@@ -187,7 +201,7 @@ const AdminUsers = () => {
 
       console.log('Upload response:', response.data);
       setValue('image', response.data.imageUrl);
-     
+   
       toast({
         title: "Success",
         description: "Image uploaded successfully",

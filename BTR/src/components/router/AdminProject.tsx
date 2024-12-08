@@ -3,7 +3,6 @@ import axios from 'axios';
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import {
   Dialog,
@@ -12,7 +11,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
+import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+
+interface Stack {
+  id: number;
+  name: string;
+  image_url: string;
+}
 
 interface Project {
   id: number;
@@ -23,6 +29,13 @@ interface Project {
   img: string;
   live: string;
   github: string;
+  stacks?: Stack[];
+}
+
+interface ProjectStack {
+  id: number;
+  project_id: number;
+  name: string;
 }
 
 const categories = [
@@ -36,8 +49,13 @@ const categories = [
 
 const AdminProject = () => {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [stacks, setStacks] = useState<Stack[]>([]);
+  const [projectStacks, setProjectStacks] = useState<ProjectStack[]>([]);
+  const [selectedStacks, setSelectedStacks] = useState<number[]>([]);
   const [open, setOpen] = useState(false);
+  const [stackOpen, setStackOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     num: '',
     category: '',
@@ -47,9 +65,12 @@ const AdminProject = () => {
     live: '',
     github: '',
   });
+  const [stackName, setStackName] = useState('');
 
   useEffect(() => {
     fetchProjects();
+    fetchStacks();
+    fetchProjectStacks();
   }, []);
 
   const fetchProjects = async () => {
@@ -58,6 +79,24 @@ const AdminProject = () => {
       setProjects(response.data);
     } catch (error) {
       console.error('Error fetching projects:', error);
+    }
+  };
+
+  const fetchStacks = async () => {
+    try {
+      const response = await axios.get('http://localhost:3500/stacks');
+      setStacks(response.data);
+    } catch (error) {
+      console.error('Error fetching stacks:', error);
+    }
+  };
+
+  const fetchProjectStacks = async () => {
+    try {
+      const response = await axios.get('http://localhost:3500/project-stacks');
+      setProjectStacks(response.data);
+    } catch (error) {
+      console.error('Error fetching project stacks:', error);
     }
   };
 
@@ -73,6 +112,7 @@ const AdminProject = () => {
         live: project.live,
         github: project.github,
       });
+      setSelectedStacks(project.stacks?.map(stack => stack.id) || []);
     } else {
       setSelectedProject(null);
       setFormData({
@@ -84,6 +124,7 @@ const AdminProject = () => {
         live: '',
         github: '',
       });
+      setSelectedStacks([]);
     }
     setOpen(true);
   };
@@ -116,6 +157,7 @@ const AdminProject = () => {
       const payload = {
         ...formData,
         num: parseInt(formData.num),
+        stacks: selectedStacks
       };
 
       if (selectedProject) {
@@ -141,6 +183,94 @@ const AdminProject = () => {
     }
   };
 
+  const handleOpenStack = (projectId: number) => {
+    setSelectedProjectId(projectId);
+    setStackName('');
+    setStackOpen(true);
+  };
+
+  const handleAddStack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProjectId || !stackName) return;
+
+    try {
+      await axios.post('http://localhost:3500/project-stacks', {
+        project_id: selectedProjectId,
+        name: stackName,
+      });
+      fetchProjectStacks();
+      setStackOpen(false);
+    } catch (error) {
+      console.error('Error adding stack:', error);
+    }
+  };
+
+  const handleDeleteStack = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this stack?')) {
+      try {
+        await axios.delete(`http://localhost:3500/project-stacks/${id}`);
+        fetchProjectStacks();
+      } catch (error) {
+        console.error('Error deleting stack:', error);
+      }
+    }
+  };
+
+  const getProjectStacks = (projectId: number) => {
+    return projectStacks.filter(stack => stack.project_id === projectId);
+  };
+
+  const handleStackChange = (stackId: number) => {
+    setSelectedStacks(prev => {
+      if (prev.includes(stackId)) {
+        return prev.filter(id => id !== stackId);
+      } else {
+        return [...prev, stackId];
+      }
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) {
+        alert('No file selected');
+        return;
+      }
+
+      // Si nous avons une image existante, la supprimer d'abord
+      const currentImageUrl = selectedProject?.img;
+      if (currentImageUrl) {
+        const filename = currentImageUrl.split('/').pop();
+        if (filename) {
+          try {
+            await axios.delete(`http://localhost:3500/upload/${filename}`);
+            console.log('Old image deleted successfully');
+          } catch (error) {
+            console.error('Error deleting old image:', error);
+          }
+        }
+      }
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await axios.post('http://localhost:3500/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        img: response.data.imageUrl
+      }));
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image');
+    }
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
@@ -159,6 +289,7 @@ const AdminProject = () => {
               <TableHead>Image</TableHead>
               <TableHead>Live URL</TableHead>
               <TableHead>GitHub URL</TableHead>
+              <TableHead>Stacks</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -187,6 +318,28 @@ const AdminProject = () => {
                   <a href={project.github} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                     View Code
                   </a>
+                </TableCell>
+                <TableCell>
+                  {getProjectStacks(project.id).map(stack => (
+                    <div key={stack.id} className="flex items-center gap-2">
+                      <span>{stack.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteStack(stack.id)}
+                        className="h-6 px-2"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenStack(project.id)}
+                  >
+                    Add Stack
+                  </Button>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
@@ -265,6 +418,16 @@ const AdminProject = () => {
                 onChange={handleInputChange}
                 required
               />
+              <div className="space-y-2">
+                <label htmlFor="project-image" className="text-sm font-medium">Project Image</label>
+                <input 
+                  id="project-image" 
+                  type="file" 
+                  onChange={handleImageUpload}
+                  className="w-full"
+                  aria-label="Upload project image"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <label htmlFor="live" className="text-sm font-medium">Live URL</label>
@@ -286,11 +449,55 @@ const AdminProject = () => {
                 required
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Technologies utilisées</label>
+              <div className="grid grid-cols-3 gap-2">
+                {stacks.map((stack) => (
+                  <label key={stack.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedStacks.includes(stack.id)}
+                      onChange={() => handleStackChange(stack.id)}
+                      className="form-checkbox"
+                    />
+                    <span>{stack.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
           </form>
-          <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button type="submit">Save</Button>
-          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={stackOpen} onOpenChange={setStackOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Stack</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddStack}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="stack" className="text-sm font-medium">Stack Name</label>
+                <Input
+                  id="stack"
+                  value={stackName}
+                  onChange={(e) => setStackName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={() => setStackOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Add</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

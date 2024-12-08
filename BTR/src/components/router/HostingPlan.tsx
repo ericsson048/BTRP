@@ -5,11 +5,10 @@ const HostingPlan: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<number>(1);
   const { id } = useParams();
   const price = id ? parseFloat(id.split("")[0]) : 0;
-  
-  
+
   let newPrice = 0;
   console.log(price);
-  
+
   switch (price) {
     case 1.49:
         newPrice = 2.99;

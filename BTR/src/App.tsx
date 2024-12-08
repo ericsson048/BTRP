@@ -22,8 +22,10 @@ import AdminProject from "./components/router/AdminProject";
 import AdminUsers from "./components/router/AdminUsers";
 import AdminProjectStacks from "./components/router/AdminProjectStacks";
 import AdminResponsibilities from "./components/router/AdminResponsibilities";
-import AdminDashboard from "./components/router/AdminDashboard";
+// import AdminDashboard from "./components/admin/AdminDashboard";
+import AdminContacts from "./components/admin/AdminContacts";
 import { AuthProvider } from './hooks/use-auth';
+import AdminDashboard from "./components/router/AdminDashboard";
 
 function App() {
 
@@ -194,6 +196,10 @@ function App() {
               <Route
                 path="responsibilities"
                 element={<AdminResponsibilities />}
+              />
+              <Route
+                path="contacts"
+                element={<AdminContacts />}
               />
             </Route>
           </Routes>

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from "../ui/card";
 import logo from "../../../public/WhatsApp Image 2024-09-18 at 22.58.28_13989f03.jpg"
 import { buttonVariants } from "../ui/button";
-import { HomeIcon, ExternalLinkIcon, PersonIcon, Pencil2Icon } from "@radix-ui/react-icons";
+import { HomeIcon, ExternalLinkIcon, PersonIcon, Pencil2Icon,  } from "@radix-ui/react-icons";
 import { FaPhone } from 'react-icons/fa';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
@@ -12,37 +12,67 @@ function NavBar() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    // Check for access token in cookies and user details in localStorage
+    // Initial check for user authentication
+    checkAuthStatus();
+
+    // Listen for authentication changes
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('auth-change', checkAuthStatus);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-change', checkAuthStatus);
+    };
+  }, []);
+
+  const checkAuthStatus = () => {
     const userInfo = localStorage.getItem('userDetails');
     if (userInfo) {
       try {
         const parsedUser = JSON.parse(userInfo);
-        if (parsedUser) {
-          setUser(parsedUser);
-        }
+        setUser(parsedUser);
       } catch (error) {
         console.error('Error parsing user info:', error);
         localStorage.removeItem('userDetails');
         setUser(null);
       }
+    } else {
+      setUser(null);
     }
-  }, []); // Remove user from dependency array
+  };
 
-  const handleLogout = () => {
-    // Clear user details from localStorage
-    localStorage.removeItem('userDetails');
-    // Clear user state
-    setUser(null);
-    // You might want to make an API call to clear the httpOnly cookie on the server
-    fetch('/api/auth/logout', {
-      method: 'POST',
-      credentials: 'include',
-    }).catch(error => console.error('Error during logout:', error));
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === 'userDetails') {
+      checkAuthStatus();
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Clear local storage
+      localStorage.removeItem('userDetails');
+      // Clear user state
+      setUser(null);
+      
+      // Make API call to logout
+      await fetch('http://localhost:3500/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      // Dispatch auth change event
+      window.dispatchEvent(new Event('auth-change'));
+      
+      // Redirect to home page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   return (
     <Card className="rounded-none  block max-[929px]:hidden">
-      <CardContent className="flex flex-col items-center justify-center text-xl p-0 px-6 pt-3 space-y-6">
+      <CardContent className="relative flex flex-col items-center justify-center text-xl p-0 px-6 pt-3 space-y-6">
         <div className="flex justify-between items-center w-full">
           <div className="flex items-center justify-center gap-2">
             <img src={logo} alt="logo" className="w-10 h-10 " />

@@ -1,9 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Card } from "../ui/card";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Card } from "../ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 import {
   Dialog,
   DialogContent,
@@ -13,15 +20,18 @@ import {
 } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
+interface Project {
+  id: number;
+  title: string;
+}
+
 interface ProjectStack {
   id: number;
   project_id: number;
   name: string;
-}
-
-interface Project {
-  id: number;
-  name: string;
+  project: {
+    title: string;
+  };
 }
 
 const AdminProjectStacks = () => {
@@ -97,6 +107,11 @@ const AdminProjectStacks = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!formData.project_id) {
+        alert('Please select a project');
+        return;
+      }
+
       const payload = {
         ...formData,
         project_id: parseInt(formData.project_id)
@@ -111,11 +126,12 @@ const AdminProjectStacks = () => {
       handleClose();
     } catch (error) {
       console.error('Error saving project stack:', error);
+      alert('Error saving project stack. Please try again.');
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this project stack?')) {
+    if (window.confirm('Are you sure you want to delete this stack?')) {
       try {
         await axios.delete(`http://localhost:3500/project-stacks/${id}`);
         fetchStacks();
@@ -125,9 +141,9 @@ const AdminProjectStacks = () => {
     }
   };
 
-  const getProjectName = (projectId: number) => {
+  const getProjectTitle = (projectId: number) => {
     const project = projects.find(p => p.id === projectId);
-    return project ? project.name : 'Unknown Project';
+    return project?.title || 'Unknown Project';
   };
 
   return (
@@ -149,7 +165,7 @@ const AdminProjectStacks = () => {
           <TableBody>
             {stacks.map((stack) => (
               <TableRow key={stack.id}>
-                <TableCell>{getProjectName(stack.project_id)}</TableCell>
+                <TableCell>{getProjectTitle(stack.project_id)}</TableCell>
                 <TableCell>{stack.name}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
@@ -164,44 +180,48 @@ const AdminProjectStacks = () => {
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{selectedStack ? 'Edit Stack' : 'Add New Stack'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Project</label>
-              <Select
-                value={formData.project_id}
-                onValueChange={handleProjectSelect}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Project</label>
+                <Select
+                  value={formData.project_id}
+                  onValueChange={handleProjectSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {project.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">Stack Name</label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label htmlFor="name" className="text-sm font-medium">Stack Name</label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
+            
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
           </form>
-          <DialogFooter className="mt-6">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button type="submit">Save</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

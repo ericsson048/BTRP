@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import axios from 'axios';
 
 interface Publication {
     id: number;
@@ -173,6 +174,47 @@ export default function AdminPublications() {
         setSelectedPublication(null);
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            const file = e.target.files?.[0];
+            if (!file) {
+                alert('No file selected');
+                return;
+            }
+
+            // Si nous avons une image existante, la supprimer d'abord
+            const currentImageUrl = selectedPublication?.image;
+            if (currentImageUrl) {
+                const filename = currentImageUrl.split('/').pop();
+                if (filename) {
+                    try {
+                        await axios.delete(`http://localhost:3500/upload/${filename}`);
+                        console.log('Old image deleted successfully');
+                    } catch (error) {
+                        console.error('Error deleting old image:', error);
+                    }
+                }
+            }
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await axios.post('http://localhost:3500/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            setFormData(prev => ({
+                ...prev,
+                image: response.data.imageUrl
+            }));
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Failed to upload image');
+        }
+    };
+
     if (loading) {
         return <div>Chargement...</div>;
     }
@@ -230,6 +272,7 @@ export default function AdminPublications() {
                                     onChange={(e) => setFormData({...formData, image: e.target.value})}
                                     required
                                 />
+                                <input type="file" onChange={handleImageUpload} />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="category">Catégorie</Label>

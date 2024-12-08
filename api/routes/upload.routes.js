@@ -43,4 +43,23 @@ router.post('/', upload.single('image'), (req, res) => {
     }
 });
 
+// Delete image endpoint
+router.delete('/:filename', (req, res) => {
+    try {
+        const filename = req.params.filename;
+        const filepath = path.join(process.cwd(), 'uploads', 'images', filename);
+
+        // Vérifier si le fichier existe
+        if (!fs.existsSync(filepath)) {
+            return res.status(404).json({ message: 'Image not found' });
+        }
+
+        // Supprimer le fichier
+        fs.unlinkSync(filepath);
+        res.json({ message: 'Image deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 export default router;

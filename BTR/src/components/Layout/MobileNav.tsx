@@ -74,7 +74,7 @@ function MobileNav() {
   ];
   return (
     <Card className="rounded-none  hidden max-[929px]:block rounded-b-lg">
-    <CardContent className="flex flex-col items-center justify-center text-xl p-0 px-6 pt-3 space-y-6 rounded-b-lg">
+    <CardContent className="flex flex-col  items-center justify-center text-xl p-0 px-6 pt-3 space-y-6 rounded-b-lg">
     <div className="flex justify-between items-center w-full">
         <div className="flex items-center justify-center gap-2">
             <img src={logo} alt="logo" className="w-24 h-24 max-sm:h-[3rem] max-sm:w-[3rem]"/>
@@ -115,7 +115,7 @@ function MobileNav() {
         </Popover>
         <Sheet>
             <SheetTrigger asChild><MenuNav width={45} height={45} className="max-sm:h-[2rem] max-sm:w-[2rem]"/></SheetTrigger>
-            <SheetContent side={"left"}>
+            <SheetContent side={"left"}  >
                 <SheetHeader>
                     <SheetTitle>
                         <div className="flex items-center justify-center gap-2">

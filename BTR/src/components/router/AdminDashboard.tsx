@@ -127,7 +127,6 @@ const AdminDashboard = () => {
                     <p className="text-sm text-gray-500">{user.email}</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">View</Button>
               </div>
             ))}
           </div>

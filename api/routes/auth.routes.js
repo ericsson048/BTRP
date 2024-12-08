@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '../config/database.js';
 import { createError } from '../utils/Error.js';
 import cookieParser from 'cookie-parser';
+import { sendPasswordResetEmail,sendWelcomeEmail } from '../services/emailService.js';
 
 const router = express.Router();
 router.use(cookieParser());
@@ -15,12 +16,14 @@ router.post("/authentification", async (req, res) => {
         const existingUser = await db.query(query, [email]);
 
         let user;
+        let isNewUser = false;
         if (existingUser.rows.length > 0) {
             user = existingUser.rows[0];
         } else {
             const insertQuery = "INSERT INTO users (name, email, image) VALUES ($1, $2, $3) RETURNING *";
             const result = await db.query(insertQuery, [name, email, image]);
             user = result.rows[0];
+            isNewUser = true;
         }
 
         // Create token
@@ -37,6 +40,16 @@ router.post("/authentification", async (req, res) => {
             sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
+
+        // Send welcome email for new users
+        if (isNewUser) {
+            try {
+                await sendWelcomeEmail(email, name);
+            } catch (emailError) {
+                console.error("Error sending welcome email:", emailError);
+                // Don't block the registration process if email fails
+            }
+        }
 
         return res.status(200).json({ 
             message: "Authentification réussie",
@@ -61,14 +74,62 @@ router.post("/sign-in", async (req, res) => {
         return res.status(400).json({ error: "Tous les champs sont requis." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const query = 'INSERT INTO users (name, email, password, image) VALUES ($1, $2, $3, $4) RETURNING id';
-    
     try {
+        // Check if email already exists
+        const existingUser = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (existingUser.rows.length > 0) {
+            return res.status(400).json({ error: "Cet email est déjà utilisé." });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const query = 'INSERT INTO users (name, email, password, image) VALUES ($1, $2, $3, $4) RETURNING id';
+        
         const results = await db.query(query, [name, email, hashedPassword, image]);
+        
+        // Send welcome email
+        try {
+            await sendWelcomeEmail(email, name);
+        } catch (emailError) {
+            console.error("Error sending welcome email:", emailError);
+            // Don't block the registration process if email fails
+        }
+
         res.status(201).json({ id: results.rows[0].id, name, email, image });
     } catch (err) {
         return res.status(500).json({ error: err.message });
+    }
+});
+
+// Password reset request route
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        const user = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (user.rows.length === 0) {
+            return res.status(404).json({ message: 'Aucun compte associé à cet email.' });
+        }
+
+        // Generate reset token
+        const resetToken = jwt.sign(
+            { email },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        // Store reset token in database
+        await db.query(
+            'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE email = $3',
+            [resetToken, new Date(Date.now() + 3600000), email]
+        );
+
+        // Send password reset email
+        await sendPasswordResetEmail(email, resetToken);
+
+        res.json({ message: 'Email de réinitialisation envoyé.' });
+    } catch (error) {
+        console.error('Error in forgot-password:', error);
+        res.status(500).json({ message: 'Erreur lors de l\'envoi de l\'email de réinitialisation.' });
     }
 });
 

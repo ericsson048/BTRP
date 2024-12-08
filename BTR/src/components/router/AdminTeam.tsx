@@ -170,6 +170,47 @@ const AdminTeam = () => {
     return responsibilities.filter(r => r.team_member_id === memberId);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) {
+        alert('No file selected');
+        return;
+      }
+
+      // Si nous avons une image existante, la supprimer d'abord
+      const currentImageUrl = selectedMember?.image_url;
+      if (currentImageUrl) {
+        const filename = currentImageUrl.split('/').pop();
+        if (filename) {
+          try {
+            await axios.delete(`http://localhost:3500/upload/${filename}`);
+            console.log('Old image deleted successfully');
+          } catch (error) {
+            console.error('Error deleting old image:', error);
+          }
+        }
+      }
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await axios.post('http://localhost:3500/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        image_url: response.data.imageUrl
+      }));
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image');
+    }
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
@@ -293,6 +334,7 @@ const AdminTeam = () => {
                 onChange={handleInputChange}
                 required
               />
+              <input type="file" onChange={handleImageUpload} />
             </div>
             <div className="space-y-2">
               <label htmlFor="facebook" className="text-sm font-medium">Facebook URL</label>
